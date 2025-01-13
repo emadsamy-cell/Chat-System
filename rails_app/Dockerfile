@@ -12,7 +12,8 @@ RUN apt-get update -qq && apt-get install -y \
 WORKDIR /app
 
 # Install gems
-COPY Gemfile Gemfile.lock ./
+COPY Gemfile* /app/
+
 RUN bundle install
 
 

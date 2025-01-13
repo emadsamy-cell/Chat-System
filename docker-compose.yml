@@ -21,10 +21,10 @@ services:
           "root",
           "-p12345678",
         ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 30s
+      timeout: 30s
+      retries: 15
+      start_period: 80s
 
   redis:
     image: redis:alpine
@@ -43,10 +43,9 @@ services:
       - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 20s
+      timeout: 20s
+      retries: 15
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
@@ -60,10 +59,9 @@ services:
           "CMD-SHELL",
           "curl -s http://localhost:9200/_cluster/health | grep -q 'status.*green\\|status.*yellow'",
         ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 20s
+      timeout: 20s
+      retries: 10
 
   rails_app:
     build:

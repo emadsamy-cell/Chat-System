@@ -1,6 +1,6 @@
 class MessagesController < ApplicationController
   def index
-    @messages = Message.where(application_token: params[:application_id], chat_number: params[:chat_id])
+    @messages = Message.where(application_token: params[:application_id], chat_number: params[:chat_id]).select(:message_number, :body)
     render json: @messages
   end
 
@@ -14,7 +14,7 @@ class MessagesController < ApplicationController
       return
     end
 
-    if body.nil?
+    if body.nil? || body.empty?
       render json: { error: "Message body cannot be empty" }, status: :bad_request
       return
     end
@@ -24,7 +24,7 @@ class MessagesController < ApplicationController
     message_number = RedisKeyService.add_new_message(application_token, chat_number)
     MessageQueueService.enqueue_message_creation(application_token, chat_number, body, message_number)
     
-    render json: { message_number: message_number }, status: :accepted
+    render json: { message_number: message_number }, status: :created
   end
 
   def search
@@ -42,11 +42,11 @@ class MessagesController < ApplicationController
     message_number = params[:id].to_i
     new_body = params[:body]
 
-    if new_body.nil?
+    if new_body.nil? || new_body.empty?
       render json: { error: "Message body cannot be empty" }, status: :bad_request
       return
     end
-  
+
     # Update the message directly in the database
     rows_affected = Message.where(
       application_token: application_token,

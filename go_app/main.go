@@ -15,11 +15,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(runtime.NumCPU() * 4)
+	db.SetMaxOpenConns(runtime.NumCPU())
 	db.SetMaxIdleConns(runtime.NumCPU())
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	workers := runtime.NumCPU() * 2
+	workers := runtime.NumCPU()
 
 	conn, ch, err := utils.SetupRabbitMQ()
 	if err != nil {

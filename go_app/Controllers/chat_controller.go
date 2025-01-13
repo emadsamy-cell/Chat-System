@@ -17,5 +17,4 @@ func CreateChat(db *sql.DB, request models.ChatCreationRequest) {
 	} else {
 		log.Printf("Chat created for application token: %s", request.ApplicationToken)
 	}
-	
 }

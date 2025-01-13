@@ -1,11 +1,11 @@
 class ApplicationsController < ApplicationController
   def index
     @applications = Application.all
-    render json: @applications
+    render json: @applications, status: :ok
   end
 
   def create
-    token = SecureRandom.hex(10)
+    token = SecureRandom.uuid
     name = params[:name]
     @application = Application.new(name: name, token: token)
     if @application.save
@@ -20,7 +20,7 @@ class ApplicationsController < ApplicationController
     token = params[:id]
     name = params[:name]
 
-    if name.nil?
+    if name.nil? || name == ""
       render json: { error: "Name is required" }, status: :bad_request
       return
     end
@@ -32,6 +32,5 @@ class ApplicationsController < ApplicationController
     else
       render json: { message: "Application updated successfully" }, status: :ok
     end
-
   end
 end

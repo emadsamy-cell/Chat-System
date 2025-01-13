@@ -1,6 +1,6 @@
 class CreateChats < ActiveRecord::Migration[8.0]
   def change
-    create_table :chats, id: false do |t|
+    create_table :chats do |t|
       t.integer :chat_number, null: false
       t.string :application_token, null: false
       t.string :name, null: false

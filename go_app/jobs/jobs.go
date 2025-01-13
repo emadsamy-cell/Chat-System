@@ -37,46 +37,52 @@ func updateChatCounts(db *sql.DB, rdb *redis.Client, ctx context.Context) {
 		return
 	}
 
-	updates := make([]string, 0)
-	tokens := make([]interface{}, 0)
-	inPlaceholders := make([]string, 0)
+	// Process in batches of 500
+	batchSize := 500
+	for i := 0; i < len(chatKeys); i += batchSize {
+		end := i + batchSize
+		if end > len(chatKeys) {
+			end = len(chatKeys)
+		}
 
-	for _, key := range chatKeys {
-		applicationToken, _ := extractKey(key)
-		chatsCount := rdb.Get(ctx, applicationToken).Val()
-		// Add a CASE condition
-		updates = append(updates, "WHEN token = ? THEN ?")
-		tokens = append(tokens, applicationToken, chatsCount)
+		currentBatch := chatKeys[i:end]
+		updates := make([]string, 0)
+		tokens := make([]interface{}, 0)
+		inPlaceholders := make([]string, 0)
+
+		for _, key := range currentBatch {
+			applicationToken, _ := extractKey(key)
+			chatsCount := rdb.Get(ctx, applicationToken).Val()
+			updates = append(updates, "WHEN token = ? THEN ?")
+			tokens = append(tokens, applicationToken, chatsCount)
+		}
+
+		for _, key := range currentBatch {
+			applicationToken, _ := extractKey(key)
+			inPlaceholders = append(inPlaceholders, "?")
+			tokens = append(tokens, applicationToken)
+		}
+
+		query := `
+				UPDATE applications
+				SET chats_count = CASE ` + strings.Join(updates, " ") + `
+				END
+				WHERE token IN (` + strings.Join(inPlaceholders, ", ") + `);
+			`
+
+		_, err = db.Exec(query, tokens...)
+		if err != nil {
+			log.Printf("Error executing bulk chat count update for batch: %v", err)
+			continue
+		}
+
+		// Remove Redis keys after successful update
+		for _, key := range currentBatch {
+			rdb.Del(ctx, key)
+		}
+
+		log.Printf("Batch chat count update completed for %d keys.", len(currentBatch))
 	}
-
-	for _, key := range chatKeys {
-		applicationToken, _ := extractKey(key)
-		// Add the token for the IN clause
-		inPlaceholders = append(inPlaceholders, "?")
-		tokens = append(tokens, applicationToken)
-	}
-
-	// Build the bulk update query
-	query := `
-		UPDATE applications
-		SET chats_count = CASE ` + strings.Join(updates, " ") + `
-		END
-		WHERE token IN (` + strings.Join(inPlaceholders, ", ") + `);
-	`
-
-	// Execute the query
-	_, err = db.Exec(query, tokens...)
-	if err != nil {
-		log.Printf("Error executing bulk chat count update: %v", err)
-		return
-	}
-
-	// Remove Redis keys after successful update
-	for _, key := range chatKeys {
-		rdb.Del(ctx, key)
-	}
-
-	log.Printf("Bulk chat count update completed for %d keys.", len(chatKeys))
 }
 
 func updateMessageCounts(db *sql.DB, rdb *redis.Client, ctx context.Context) {
@@ -90,46 +96,53 @@ func updateMessageCounts(db *sql.DB, rdb *redis.Client, ctx context.Context) {
 		return
 	}
 
-	updates := make([]string, 0)
-	tokens := make([]interface{}, 0)
-	inPlaceholders := make([]string, 0)
+	// Process in batches of 500
+	batchSize := 500
+	for i := 0; i < len(messageKeys); i += batchSize {
+		end := i + batchSize
+		if end > len(messageKeys) {
+			end = len(messageKeys)
+		}
 
-	for _, key := range messageKeys {
-		applicationToken, chatNumber := extractKey(key)
-		messagesCount := rdb.Get(ctx, applicationToken+":"+chatNumber).Val()
+		currentBatch := messageKeys[i:end]
+		updates := make([]string, 0)
+		tokens := make([]interface{}, 0)
+		inPlaceholders := make([]string, 0)
 
-		// Add the `CASE` condition
-		updates = append(updates, "WHEN application_token = ? AND chat_number = ? THEN ?")
-		tokens = append(tokens, applicationToken, chatNumber, messagesCount)
+		for _, key := range currentBatch {
+			applicationToken, chatNumber := extractKey(key)
+			messagesCount := rdb.Get(ctx, applicationToken+":"+chatNumber).Val()
+
+			updates = append(updates, "WHEN application_token = ? AND chat_number = ? THEN ?")
+			tokens = append(tokens, applicationToken, chatNumber, messagesCount)
+		}
+
+		for _, key := range currentBatch {
+			applicationToken, chatNumber := extractKey(key)
+			inPlaceholders = append(inPlaceholders, "(?, ?)")
+			tokens = append(tokens, applicationToken, chatNumber)
+		}
+
+		query := `
+			UPDATE chats
+			SET messages_count = CASE ` + strings.Join(updates, " ") + `
+			END
+			WHERE (application_token, chat_number) IN (` + strings.Join(inPlaceholders, ", ") + `);
+		`
+
+		_, err = db.Exec(query, tokens...)
+		if err != nil {
+			log.Printf("Error executing bulk message count update for batch: %v", err)
+			continue
+		}
+
+		// Remove Redis keys after successful update
+		for _, key := range currentBatch {
+			rdb.Del(ctx, key)
+		}
+
+		log.Printf("Batch message count update completed for %d keys.", len(currentBatch))
 	}
-
-	for _, key := range messageKeys {
-		applicationToken, chatNumber := extractKey(key)
-		inPlaceholders = append(inPlaceholders, "(?, ?)")
-		tokens = append(tokens, applicationToken, chatNumber)
-	}
-
-	// Build the bulk update query
-	query := `
-		UPDATE chats
-		SET messages_count = CASE ` + strings.Join(updates, " ") + `
-		END
-		WHERE (application_token, chat_number) IN (` + strings.Join(inPlaceholders, ", ") + `);
-	`
-
-	// Execute the query
-	_, err = db.Exec(query, tokens...)
-	if err != nil {
-		log.Printf("Error executing bulk message count update: %v", err)
-		return
-	}
-
-	// Remove Redis keys after successful update
-	for _, key := range messageKeys {
-		rdb.Del(ctx, key)
-	}
-
-	log.Printf("Bulk message count update completed for %d keys.", len(messageKeys))
 }
 
 func extractKey(key string) (string, string) {

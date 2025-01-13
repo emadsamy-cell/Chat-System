@@ -1,7 +1,7 @@
 class ChatsController < ApplicationController
   def index
-    @chats = Chat.where(application_token: params[:application_id])
-    render json: @chats
+    @chats = Chat.where(application_token: params[:application_id]).select(:chat_number, :name, :messages_count)
+    render json: @chats, status: :ok
   end
 
   def create
@@ -10,12 +10,12 @@ class ChatsController < ApplicationController
 
     # Check if the application exists
     if RedisKeyService.get_application(application_token).nil?
-      render json: { error: "Application not found"}, status: :not_found
+      render json: { error: "Application not found" }, status: :not_found
       return
     end
-    
-    if name.nil?
-      render json: {error: "Name is required"}, status: :bad_request
+
+    if name.nil? || name.empty?
+      render json: { error: "Name is required" }, status: :bad_request
       return
     end
 
@@ -25,7 +25,7 @@ class ChatsController < ApplicationController
 
     MessageQueueService.enqueue_chat_creation(application_token, chat_number, name)
 
-    render json: { chat_number: chat_number }, status: :accepted
+    render json: { chat_number: chat_number }, status: :created
   end
 
   def update
@@ -33,18 +33,17 @@ class ChatsController < ApplicationController
     chat_number = params[:id]
     name = params[:name]
 
-    if name.nil?
-      render json: {error: "Name is required"}, status: :bad_request
+    if name.nil? || name.empty?
+      render json: { error: "Name is required" }, status: :bad_request
       return
     end
 
     isUpdated = Chat.where(application_token: application_token, chat_number: chat_number).update_all(name: name)
 
     if isUpdated == 0
-      render json: {error: "Chat not found"}, status: :not_found
+      render json: { error: "Chat not found" }, status: :not_found
     else
-      render json: {message: "Chat updated successfully"}, status: :ok
+      render json: { message: "Chat updated successfully" }, status: :ok
     end
   end
-
 end

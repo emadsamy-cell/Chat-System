@@ -11,8 +11,13 @@ class Message < ApplicationRecord
               { match: { body: query } }
             ]
           }
-        }
+        },
+        _source: ["body", "message_number"]
       }
     )
+  end
+
+  def as_json(options = {})
+    super(options.merge(except: [:id]))
   end
 end
