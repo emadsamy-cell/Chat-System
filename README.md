@@ -27,8 +27,9 @@ The database schema for this system includes indexed columns to optimize query p
 - **Applications Table**: Indexed on `token`.
 - **Chats Table**: Indexed on `application_token` and `chat_number`.
 - **Messages Table**: Indexed on `application_token`, `chat_number`, and `message_number`.
-- 
-![Database-schema](https://github.com/user-attachments/assets/a70d8ec3-f0af-47bd-a486-65768b5fbde4)
+
+
+![Database-schema](https://github.com/user-attachments/assets/55bfd680-cb61-4144-b69f-387f7a447a82)
 
 Here is link to schema: [Database schema](https://drive.google.com/file/d/155w9YRYPV5CAFI96tlRcOvbu-NYCSQGW/view?usp=sharing)
 
@@ -99,8 +100,13 @@ Elasticsearch is used to enable partial matching of message bodies by `chat_numb
 
 ### Testing
 - RSpec is used for testing all endpoints in the Rails application. 
-- The test files are located in the `spec` directory. 
-
+- The test files are located in the `spec` directory.
+- To run tests:
+  ```
+  docker exec -it <rails-containerID> bundle exec rspec spec/requests/applications_spec.rb
+  docker exec -it <rails-containerID> bundle exec rspec spec/requests/chats_spec.rb
+  docker exec -it <rails-containerID> bundle exec rspec spec/requests/messages_spec.rb
+  ```
 ## Go Application
 The Go application includes components for processing tasks and updating data:
 - **Consumers**: Listen to message queues for creating chats and messages.
