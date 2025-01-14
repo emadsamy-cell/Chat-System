@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -17,6 +18,41 @@ func StartMessageConsumer(db *sql.DB, ch *amqp.Channel, workers int) {
 		log.Fatal(err)
 	}
 
+	messageChannel := make(chan models.MessageCreationRequest, 1000)
+	batchChannel := make(chan []models.MessageCreationRequest, 10)
+
+	maxBatchSize := 500
+	maxWaitTime := 5 * time.Second
+
+	go func() {
+		var messages []models.MessageCreationRequest
+		timer := time.NewTimer(maxWaitTime)
+
+		for {
+			select {
+			case msg := <-messageChannel:
+				messages = append(messages, msg)
+				if len(messages) >= maxBatchSize {
+					batchChannel <- messages
+					messages = nil
+					timer.Reset(maxWaitTime)
+				}
+			case <-timer.C:
+				if len(messages) > 0 {
+					batchChannel <- messages
+					messages = nil
+				}
+				timer.Reset(maxWaitTime)
+			}
+		}
+	}()
+	// Goroutine to process batches
+	go func() {
+		for batch := range batchChannel {
+			go controllers.ProcessMessage(db, batch)
+		}
+	}()
+
 	for i := 0; i < workers; i++ {
 		go func() {
 			for d := range msgs {
@@ -25,7 +61,7 @@ func StartMessageConsumer(db *sql.DB, ch *amqp.Channel, workers int) {
 					log.Printf("Error decoding message creation request: %s", err)
 					continue
 				}
-				controllers.ProcessMessage(db, request)
+				messageChannel <- request
 			}
 		}()
 	}

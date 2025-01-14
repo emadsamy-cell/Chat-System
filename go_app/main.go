@@ -6,7 +6,6 @@ import (
 	"chat_with_go/utils"
 	"log"
 	"runtime"
-	"time"
 )
 
 func main() {
@@ -15,11 +14,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(runtime.NumCPU())
-	db.SetMaxIdleConns(runtime.NumCPU())
-	db.SetConnMaxLifetime(5 * time.Minute)
 
-	workers := runtime.NumCPU()
+	workers := runtime.NumCPU() * 2
 
 	conn, ch, err := utils.SetupRabbitMQ()
 	if err != nil {
